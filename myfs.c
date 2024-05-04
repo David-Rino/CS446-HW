@@ -316,7 +316,64 @@ void my_crawlfs(myfs_t* myfs) {
 
 // IMPLEMENT THIS FUNCTION
 void my_creatdir(myfs_t* myfs, int cur_dir_inode_number, const char* new_dirname) {
+
+  //Step 1: Access Inode Bitmap, and search to find the first location that can be used for the new inode.
   
+  int bitSet = 0;
+  size_t sizeOfInode = sizeof(block_t);
+
+  block_t* newInodeMap = (block_t*) malloc(sizeOfInode); // i. Alocates space for the read-in from disk
+
+  memcpy(newInodeMap, &myfs->imap, sizeOfInode); // ii. Read-in from disk using memcpy
+
+  int inodeIndex = root_inode_number;
+
+  // iii. Work on data in Memory finding the first unused bit
+
+  for (int i = 0; i < BLKSIZE; i++) {
+    for (int j = 0; j < 8; j++) {
+      if ((newInodeMap->data[i] &(1 << j)) == 0 && !bitSet) {
+        bitSet = 1; // Marks the first unused bit, then set it as used
+        inodeIndex = i * 8 + j;
+        newInodeMap->data[i] |= 1 << j;
+        break;
+      }
+    }
+    if (bitSet) break;
+  }
+
+  memcpy (&myfs->imap, newInodeMap, sizeOfInode); // iv. Write-out to disk
+  free(newInodeMap);
+
+  // Step 2 Use Read-Modify Write to access the Block Bitmap of the Filesystem to find the first location that can be used as a datablock
+
+  bitSet = 0;
+
+  // Follows the same steps as step 1 for Read-Moify-Write except using bmap instead of imap.
+  size_t sizeOfBlock = sizeof(block_t);
+
+  block_t* blockMap = (block_t*) malloc (sizeOfBlock);
+  memcpy(blockMap, &myfs->bmap, sizeOfBlock);
+
+  int blockIndex = root_datablock_number;
+
+  for (int i = 0; i < BLKSIZE; i++) {
+    for (int j = 0; j < 8; j++) {
+      if ((blockMap->data[i] &(1 << j)) == 0 && !bitSet) {
+        bitSet = 1; // Marks the first unused bit, then set it as used
+        blockIndex = i * 8 + j;
+        blockMap->data[i] |= 1 << j;
+        break;
+      }
+    }
+    if (bitSet) break;
+  }
+
+  memcpy(&myfs->bmap, blockMap, sizeOfBlock);
+  free(blockMap);
+
+  
+
 }
 
 
