@@ -390,7 +390,6 @@ void my_creatdir(myfs_t* myfs, int cur_dir_inode_number, const char* new_dirname
 
   inode_t* newInode = &inodeTable[inodeIndex];
   newInode->data[0] = malloc(sizeof(block_t)); //Allocate Space 
-
   newInode->size = 2 * sizeof(dirent_t); // Inode Size
   newInode->blocks = 1; // Inode Blocks
 
@@ -411,10 +410,9 @@ void my_creatdir(myfs_t* myfs, int cur_dir_inode_number, const char* new_dirname
   //dirent_t* dir = (dirent_t*)dir_ptr;
 
   //Instead as stated in the assignment the example is not using more than 1 Block so we can choose to access the dat in inode.data[0] as stated in the instructions
-  //That would be located in newInode->data[0]-> for us in the way we need to access it.
+  //That would be located in newInode->data[0]->data for us in the way we need to access it.
   //Read in not required we are creating file system for first time
   dirent_t* dir = (dirent_t*) newInode->data[0]->data;
-
   
   // dirent '.'
   dirent_t* direntSelf = &dir[0];
@@ -426,10 +424,9 @@ void my_creatdir(myfs_t* myfs, int cur_dir_inode_number, const char* new_dirname
   // dirent '..'
   dirent_t* direntParent = &dir[1];
   direntParent->name_len = 2;
-  direntParent->inode = cur_dir_inode_number;
+  direntParent->inode = inodeIndex;
   direntParent->file_type = 2;
   strcpy(direntParent->name, "..");
-
 
   //Step 5:
 
@@ -438,18 +435,15 @@ void my_creatdir(myfs_t* myfs, int cur_dir_inode_number, const char* new_dirname
 
   dirent_t* newDirectory = (dirent_t*)block->data;
   int index = 0;
-  int entries = parentInode->size / sizeof(dirent_t);
 
-  for (int i = 0; i < entries; i++) {
-    if(newDirectory[i].inode == 0) {
-      index = i;
-    }
+  for (int i = 0; i < parentInode->size / sizeof(dirent_t); i++) {
+    if(newDirectory[i].inode == 0) { index = i; }
   } 
 
-  newDirectory[index].inode = inodeIndex;
   newDirectory[index].name_len = strlen(new_dirname);
-  strcpy(newDirectory[index].name, new_dirname);
+  newDirectory[index].inode = inodeIndex;
   newDirectory[index].file_type = 2;
+  strcpy(newDirectory[index].name, new_dirname);
 
   memcpy(parentInode->data[0], block, sizeof(block_t));
   memcpy(&myfs->groupdescriptor.groupdescriptor_info.inode_table[cur_dir_inode_number], parentInode, sizeof(inode_t));
