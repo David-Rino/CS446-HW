@@ -1,3 +1,5 @@
+//Author: Rino David
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <stddef.h>
@@ -359,7 +361,7 @@ void my_creatdir(myfs_t* myfs, int cur_dir_inode_number, const char* new_dirname
 
   for (int i = 0; i < BLKSIZE; i++) {
     for (int j = 0; j < 8; j++) {
-      if ((blockMap->data[i] &(1 << j)) == 0 && !bitSet) {
+      if ((blockMap->data[i] & (1 << j)) == 0 && !bitSet) {
         bitSet = 1; // Marks the first unused bit, then set it as used
         blockIndex = i * 8 + j;
         blockMap->data[i] |= 1 << j;
@@ -372,8 +374,91 @@ void my_creatdir(myfs_t* myfs, int cur_dir_inode_number, const char* new_dirname
   memcpy(&myfs->bmap, blockMap, sizeOfBlock);
   free(blockMap);
 
-  
+  // Step 3. 
 
+  bitSet = 0;
+
+  // i. Access inode Table of File System
+
+  inode_t* inodeTable = malloc(BLKSIZE);
+  memcpy(inodeTable, myfs->groupdescriptor.groupdescriptor_info.inode_table, BLKSIZE);
+
+  // ii. Load the Parent Directory Inode and ajust parent inode size to have 1 more directory
+
+  inode_t* parentInode = malloc(sizeof(inode_t));
+  memcpy(parentInode, &inodeTable[cur_dir_inode_number], sizeof(inode_t));
+  parentInode->size += sizeof(dirent_t);
+
+  // iii. Load and Intialize new Inode (size, blocks, data)
+
+  inode_t* newInode = &inodeTable[inodeIndex];
+  newInode->data[0] = malloc(sizeof(block_t)); //Allocate Space 
+
+  newInode->size = 2 * sizeof(dirent_t); // Inode Size
+  newInode->blocks = 1; // Inode Blocks
+
+  // Setting the rest of the datablcoks to NULL
+  for(int i = 1; i < 15; i++) {
+    inodeTable[inodeIndex].data[i] = NULL;
+  }
+
+  //Update file system inode table using memcpy and also freeing inode table after copy
+  memcpy(myfs->groupdescriptor.groupdescriptor_info.inode_table, inodeTable, BLKSIZE);
+  free(inodeTable);
+
+  // Step 4.
+
+  // data (directory)
+  //Commented both dir_ptr resulst in the same file structure however doesn't have "." and ".." if using dir_ptr
+  //void *dir_ptr = calloc(BLKSIZE, sizeof(char));
+  //dirent_t* dir = (dirent_t*)dir_ptr;
+
+  //Instead as stated in the assignment the example is not using more than 1 Block so we can choose to access the dat in inode.data[0] as stated in the instructions
+  //That would be located in newInode->data[0]-> for us in the way we need to access it.
+  //Read in not required we are creating file system for first time
+  dirent_t* dir = (dirent_t*) newInode->data[0]->data;
+
+  
+  // dirent '.'
+  dirent_t* direntSelf = &dir[0];
+  direntSelf->name_len = 1;
+  direntSelf->inode = inodeIndex;
+  direntSelf->file_type = 2;
+  strcpy(direntSelf->name, ".");
+
+  // dirent '..'
+  dirent_t* direntParent = &dir[1];
+  direntParent->name_len = 2;
+  direntParent->inode = cur_dir_inode_number;
+  direntParent->file_type = 2;
+  strcpy(direntParent->name, "..");
+
+
+  //Step 5:
+  
+  block_t* block = malloc(sizeof(block_t));
+  memcpy(block, parentInode->data[0], sizeof(block_t));
+
+  dirent_t* newDirectory = (dirent_t*)block->data;
+  int index = 0;
+  int entries = parentInode->size / sizeof(dirent_t);
+
+  for (int i = 0; i < entries; i++) {
+    if(newDirectory[i].inode == 0) {
+      index = i;
+    }
+  } 
+
+  newDirectory[index].inode = inodeIndex;
+  newDirectory[index].name_len = strlen(new_dirname);
+  strcpy(newDirectory[index].name, new_dirname);
+  newDirectory[index].file_type = 2;
+
+  memcpy(parentInode->data[0], block, sizeof(block_t));
+  memcpy(&myfs->groupdescriptor.groupdescriptor_info.inode_table[cur_dir_inode_number], parentInode, sizeof(inode_t));
+
+  free(block);
+  free(parentInode);
 }
 
 
