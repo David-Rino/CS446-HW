@@ -334,10 +334,10 @@ void my_creatdir(myfs_t* myfs, int cur_dir_inode_number, const char* new_dirname
 
   for (int i = 0; i < BLKSIZE; i++) {
     for (int j = 0; j < 8; j++) {
-      if ((newInodeMap->data[i] &(1 << j)) == 0 && !bitSet) {
+      if ((newInodeMap->data[i] &(0x1 << j)) == 0 && !bitSet) {
         bitSet = 1; // Marks the first unused bit, then set it as used
+        newInodeMap->data[i] |= 0x1 << j;
         inodeIndex = i * 8 + j;
-        newInodeMap->data[i] |= 1 << j;
         break;
       }
     }
@@ -357,14 +357,11 @@ void my_creatdir(myfs_t* myfs, int cur_dir_inode_number, const char* new_dirname
   block_t* blockMap = (block_t*) malloc (sizeOfBlock);
   memcpy(blockMap, &myfs->bmap, sizeOfBlock);
 
-  int blockIndex = root_datablock_number;
-
   for (int i = 0; i < BLKSIZE; i++) {
     for (int j = 0; j < 8; j++) {
-      if ((blockMap->data[i] & (1 << j)) == 0 && !bitSet) {
+      if ((blockMap->data[i] & (0x1 << j)) == 0 && !bitSet) {
         bitSet = 1; // Marks the first unused bit, then set it as used
-        blockIndex = i * 8 + j;
-        blockMap->data[i] |= 1 << j;
+        blockMap->data[i] |= 0x1 << j;
         break;
       }
     }
@@ -435,7 +432,7 @@ void my_creatdir(myfs_t* myfs, int cur_dir_inode_number, const char* new_dirname
 
 
   //Step 5:
-  
+
   block_t* block = malloc(sizeof(block_t));
   memcpy(block, parentInode->data[0], sizeof(block_t));
 
